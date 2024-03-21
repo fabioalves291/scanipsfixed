@@ -1,0 +1,88 @@
+import re
+
+def ler_arquivo_dhcp(nome_arquivo):
+    with open(nome_arquivo, 'r') as arquivo:
+        return arquivo.read()
+
+def extrair_faixa_ips(configuracao_dhcp):
+    # Utilizando expressões regulares para encontrar a faixa de IPs
+    padrao_faixa = r'subnet\s+(\d+\.\d+\.\d+\.\d+)\s+netmask\s+(\d+\.\d+\.\d+\.\d+)\s*\{([^}]*)\}'
+    matches = re.findall(padrao_faixa, configuracao_dhcp, re.DOTALL)
+
+    faixas_ips = []
+    for match in matches:
+        subnet, netmask, configuracoes = match
+        # Encontrar a faixa de IPs dentro das configurações da subnet
+        padrao_range = r'range\s+([\d\.]+)\s+([\d\.]+);'
+        range_matches = re.findall(padrao_range, configuracoes)
+        if range_matches:
+            faixa_ip_inicio, faixa_ip_fim = range_matches[0]
+            faixas_ips.append((subnet, netmask, faixa_ip_inicio, faixa_ip_fim))
+
+    return faixas_ips
+
+def extrair_ips_fixos(configuracao_dhcp):
+    # Utilizando expressões regulares para encontrar os IPs fixos atribuídos manualmente
+    padrao_ips_fixos = r'host\s+\w+\s+\{([^}]*)\s+fixed-address\s+([\d\.]+);\s*\}'
+    matches = re.findall(padrao_ips_fixos, configuracao_dhcp, re.DOTALL)
+
+    ips_fixos = []
+    for match in matches:
+        _, ip_fixo = match
+        ips_fixos.append(ip_fixo)
+
+    return ips_fixos
+
+def listar_ips_disponiveis(faixa_ip_inicio, faixa_ip_fim, ips_reservados):
+    inicio_ip_num = ip_para_numero(faixa_ip_inicio)
+    fim_ip_num = ip_para_numero(faixa_ip_fim)
+
+    ips_disponiveis = []
+    for ip_num in range(inicio_ip_num, fim_ip_num + 1):
+        ip = numero_para_ip(ip_num)
+        if ip not in ips_reservados:
+            ips_disponiveis.append(ip)
+
+    return ips_disponiveis
+
+def ip_para_numero(ip):
+    partes = ip.split('.')
+    return int(partes[0]) * 256 ** 3 + int(partes[1]) * 256 ** 2 + int(partes[2]) * 256 + int(partes[3])
+
+def numero_para_ip(numero):
+    return '.'.join(str((numero >> i) & 0xFF) for i in [24, 16, 8, 0])
+def main():
+    nome_arquivo = "dhcpd.conf"
+
+    # descomentando podemos mudar nome do arquivo padrao e diretorio.
+    #nome_arquivo = input("Digite o caminho do arquivo DHCP: ")
+    
+    configuracao_dhcp = ler_arquivo_dhcp(nome_arquivo)
+    faixas_ips = extrair_faixa_ips(configuracao_dhcp)
+    ips_fixos = extrair_ips_fixos(configuracao_dhcp)
+
+    if faixas_ips:
+        for faixa_ip in faixas_ips:
+            subnet, netmask, faixa_ip_inicio, faixa_ip_fim = faixa_ip
+            print(f"Faixa de IPs configurada: {faixa_ip_inicio} - {faixa_ip_fim}")
+            ips_disponiveis = listar_ips_disponiveis(faixa_ip_inicio, faixa_ip_fim, ips_fixos)
+            num_colunas = 6
+            num_ips_por_coluna = len(ips_disponiveis) // num_colunas
+            resto = len(ips_disponiveis) % num_colunas
+
+            print("+-----------------+" * num_colunas + "+")
+            print(("| {:^16} |" * num_colunas).format(*["IP"] * num_colunas) + "|")
+            print("+-----------------+" * num_colunas + "+")
+            for i in range(0, num_ips_por_coluna + resto, num_colunas):
+                linha_ips = ips_disponiveis[i:i+num_colunas]
+                print(("| {:^16} |" * len(linha_ips)).format(*linha_ips) + "|")
+            for i in range(num_ips_por_coluna + resto, len(ips_disponiveis), num_colunas):
+                linha_ips = ips_disponiveis[i:i+num_colunas]
+                print(("| {:^16} |" * len(linha_ips)).format(*linha_ips) + "|")
+            print("+-----------------+" * num_colunas + "+")
+            print(f"Total de IPs disponíveis: {len(ips_disponiveis)}")
+    else:
+        print("Nenhuma faixa de IPs configurada no arquivo DHCP")
+
+if __name__ == "__main__":
+    main()
