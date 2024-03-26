@@ -5,14 +5,12 @@ def ler_arquivo_dhcp(nome_arquivo):
         return arquivo.read()
 
 def extrair_faixa_ips(configuracao_dhcp):
-    # Utilizando expressões regulares para encontrar a faixa de IPs
     padrao_faixa = r'subnet\s+(\d+\.\d+\.\d+\.\d+)\s+netmask\s+(\d+\.\d+\.\d+\.\d+)\s*\{([^}]*)\}'
     matches = re.findall(padrao_faixa, configuracao_dhcp, re.DOTALL)
 
     faixas_ips = []
     for match in matches:
         subnet, netmask, configuracoes = match
-        # Encontrar a faixa de IPs dentro das configurações da subnet
         padrao_range = r'range\s+([\d\.]+)\s+([\d\.]+);'
         range_matches = re.findall(padrao_range, configuracoes)
         if range_matches:
@@ -22,25 +20,40 @@ def extrair_faixa_ips(configuracao_dhcp):
     return faixas_ips
 
 def extrair_ips_fixos(configuracao_dhcp):
-    # Utilizando expressões regulares para encontrar os IPs fixos atribuídos manualmente
-    padrao_ips_fixos = r'host\s+\w+\s+\{([^}]*)\s+fixed-address\s+([\d\.]+);\s*\}'
-    matches = re.findall(padrao_ips_fixos, configuracao_dhcp, re.DOTALL)
+    linhas = configuracao_dhcp.split('\n')
+    ips_fixos = {}
 
-    ips_fixos = []
-    for match in matches:
-        _, ip_fixo = match
-        ips_fixos.append(ip_fixo)
+    i = 0
+    while i < len(linhas):
+        linha = linhas[i].strip()
+        if linha.startswith('host'):
+            nome = linha.split()[1]
+            ip_fixo = None
+            mac_fixo = None
+
+            for linha in linhas[i+1:]:
+                if 'fixed-address' in linha:
+                    ip_fixo = linha.split()[1].strip(';')
+                elif 'hardware ethernet' in linha:
+                    mac_fixo = linha.split()[-1].strip(';')
+                elif '}' in linha:
+                    break
+
+            if nome and ip_fixo and mac_fixo:
+                ips_fixos[ip_fixo] = mac_fixo
+
+        i += 1
 
     return ips_fixos
 
-def listar_ips_disponiveis(faixa_ip_inicio, faixa_ip_fim, ips_reservados):
+def listar_ips_disponiveis(faixa_ip_inicio, faixa_ip_fim, ips_fixos):
     inicio_ip_num = ip_para_numero(faixa_ip_inicio)
     fim_ip_num = ip_para_numero(faixa_ip_fim)
 
     ips_disponiveis = []
     for ip_num in range(inicio_ip_num, fim_ip_num + 1):
         ip = numero_para_ip(ip_num)
-        if ip not in ips_reservados:
+        if ip not in ips_fixos:  
             ips_disponiveis.append(ip)
 
     return ips_disponiveis
@@ -51,21 +64,33 @@ def ip_para_numero(ip):
 
 def numero_para_ip(numero):
     return '.'.join(str((numero >> i) & 0xFF) for i in [24, 16, 8, 0])
+
 def main():
     nome_arquivo = "dhcpd.conf"
-
-    # descomentando podemos mudar nome do arquivo padrao e diretorio.
-    #nome_arquivo = input("Digite o caminho do arquivo DHCP: ")
-    
     configuracao_dhcp = ler_arquivo_dhcp(nome_arquivo)
     faixas_ips = extrair_faixa_ips(configuracao_dhcp)
     ips_fixos = extrair_ips_fixos(configuracao_dhcp)
 
+    print("IPs fixos:")
+    print(ips_fixos)
+    print()
+
+    print("Faixas de IPs:")
+    print(faixas_ips)
+    print()
+
     if faixas_ips:
         for faixa_ip in faixas_ips:
             subnet, netmask, faixa_ip_inicio, faixa_ip_fim = faixa_ip
+            
+            if configuracao_dhcp.find("# subnet " + subnet) != -1:
+                print("# A rede {} está comentada e não está ativa.".format(subnet))
+                continue
+            
             print(f"Faixa de IPs configurada: {faixa_ip_inicio} - {faixa_ip_fim}")
+            print(f"Subnet: {subnet} / Máscara: {netmask}")
             ips_disponiveis = listar_ips_disponiveis(faixa_ip_inicio, faixa_ip_fim, ips_fixos)
+            
             num_colunas = 6
             num_ips_por_coluna = len(ips_disponiveis) // num_colunas
             resto = len(ips_disponiveis) % num_colunas
@@ -81,6 +106,7 @@ def main():
                 print(("| {:^16} |" * len(linha_ips)).format(*linha_ips) + "|")
             print("+-----------------+" * num_colunas + "+")
             print(f"Total de IPs disponíveis: {len(ips_disponiveis)}")
+            print()
     else:
         print("Nenhuma faixa de IPs configurada no arquivo DHCP")
 
