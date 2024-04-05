@@ -1,3 +1,6 @@
+#!/bin/python3
+#!/usr/sbin/python3
+
 import re
 import sys
 from ipaddress import IPv4Network
@@ -6,15 +9,13 @@ def extract_fixed_ips(file_path):
     fixed_ips = {}
     network_address = None
     subnet_mask = None
-    config_ips = []  # Lista para armazenar os IPs de configuração
-    with open(file_path, 'r') as file:
+    config_ips = []
+    with open(file_path, 'r', encoding="UTF-8") as file:
         for line in file:
-            # Verifica e extrai as configurações de IP
             config_match = re.match(r'^\s*option\s+(domain-name-servers|netbios-name-servers|routers|subnet-mask|broadcast-address)\s+((?:\d{1,3}\.){3}\d{1,3}(?:,\s*(?:\d{1,3}\.){3}\d{1,3})*)', line)
             if config_match:
                 ips = config_match.group(2).split(', ')
                 config_ips.extend(ips)
-            # Extrai os IPs fixos
             subnet_match = re.match(r'^\s*subnet\s+((?:\d{1,3}\.){3}\d{1,3})\s+netmask\s+((?:\d{1,3}\.){3}\d{1,3})', line)
             if subnet_match:
                 network_address = subnet_match.group(1)
@@ -32,49 +33,44 @@ def extract_fixed_ips(file_path):
 def get_unused_ips(network_address, subnet_mask, fixed_ips, config_ips):
     network = IPv4Network(f'{network_address}/{subnet_mask}', strict=False)
     all_ips = [str(ip) for ip in network.hosts()]
-    # Remove os IPs de configuração da lista de IPs disponíveis
     unused_ips = [ip for ip in all_ips if ip not in fixed_ips.keys() and ip not in config_ips]
     return unused_ips
 
 def main():
-    file_path = 'dhcpd.conf'  # Caminho para o arquivo dhcpd.conf
+    file_path = 'dhcpd.conf'
     
-    # Verifica se o Python 2 está presente e tenta executar o script com Python 3
     if sys.version_info.major == 2:
         print("Este script requer Python 3 para ser executado.")
         sys.exit(1)
     
     fixed_ips, network_address, subnet_mask, config_ips = extract_fixed_ips(file_path)
     
-    # Verificar se o endereço de rede foi encontrado
     if network_address is None or subnet_mask is None:
         print("Não foi possível encontrar o endereço de rede no arquivo dhcpd.conf.")
         sys.exit(1)
     
-    # Filtrar endereços IP inválidos
     valid_ips = sorted([(ip, host_name) for ip, host_name in fixed_ips.items()], key=lambda x: x[1].lower())
     
     unused_ips = get_unused_ips(network_address, subnet_mask, fixed_ips, config_ips)
     
-    # Encontrar o tamanho máximo do nome do host
     max_host_name_length = max(len(host_name) for _, host_name in valid_ips)
-    # Adicionar um espaço extra para separação entre o nome do host e o IP
     max_host_name_length += 2
     
-    print("Endereços IP fixos registrados:")
-    print("=" * 40)
-    print(f"{'Nome do Host':<{max_host_name_length}}{'Endereço IP':<20}")
-    print("=" * 40)
-    for ip, host_name in valid_ips:
-        print(f"{host_name:<{max_host_name_length}}{ip:<20}")
-    print("=" * 40)
+    with open("ips_fixos.txt", "w") as fixed_ips_file:
+        fixed_ips_file.write("Endereços IP fixos registrados:\n")
+        fixed_ips_file.write("=" * 40 + "\n")
+        fixed_ips_file.write(f"{'Nome do Host':<{max_host_name_length}}{'Endereço IP':<20}\n")
+        fixed_ips_file.write("=" * 40 + "\n")
+        for ip, host_name in valid_ips:
+            fixed_ips_file.write(f"{host_name:<{max_host_name_length}}{ip:<20}\n")
+        fixed_ips_file.write("=" * 40 + "\n")
 
-    print("\nEndereços IP disponíveis dentro da rede principal:")
-    print("=" * 40)
-    for ip in unused_ips:
-        print(ip)
-    print("=" * 40)
+    with open("ips_disponiveis.txt", "w") as available_ips_file:
+        available_ips_file.write("Endereços IP disponíveis dentro da rede principal:\n")
+        available_ips_file.write("=" * 40 + "\n")
+        for ip in unused_ips:
+            available_ips_file.write(ip + "\n")
+        available_ips_file.write("=" * 40 + "\n")
 
 if __name__ == "__main__":
     main()
-

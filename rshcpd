@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Caminho do arquivo de configuração DHCP
-dhcp_config="/caminho/do/arquivo/dhcp.conf"
+dhcp_config="/etc/dhcp/dhcpd.conf"
 
 # Verifica se o arquivo existe
 if [ -f "$dhcp_config" ]; then
@@ -15,11 +15,13 @@ else
 fi
 
 # Verifica se o programa scan1.2 existe no diretório atual
-if [ -x ./scan1.2 ]; then
+chmod +x ./scan1.3;
+chmod +x ./clist;
+if [ -x ./scan1.3 ]; then
     # Executa o programa scan1.2
-    python scan1.2
+    ./scan1.3;
+    ./clist;
 else
     echo "Erro: O programa scan1.2 não foi encontrado no diretório atual."
     exit 1
 fi
-

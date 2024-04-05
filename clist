@@ -1,0 +1,60 @@
+#!/bin/python3
+#!/usr/sbin/python3
+
+
+def read_ips_from_file(filename):
+    """Lê os IPs de um arquivo e retorna uma lista de IPs."""
+    ips = []
+    with open(filename, 'r') as file:
+        for line in file:
+            ips.append(line.strip())
+    return ips
+
+def group_ips(ips):
+    """Agrupa os IPs em sequências."""
+    groups = []
+    current_group = [ips[0]]
+
+    # Percorre a lista de IPs
+    for i in range(1, len(ips)):
+        prev_ip = ips[i - 1]
+        current_ip = ips[i]
+        
+        # Divide os IPs em partes
+        prev_ip_parts = prev_ip.split('.')
+        current_ip_parts = current_ip.split('.')
+        
+        # Verifica se os IPs estão na mesma sequência
+        if prev_ip_parts[:3] == current_ip_parts[:3] and int(current_ip_parts[3]) == int(prev_ip_parts[3]) + 1:
+            current_group.append(current_ip)
+        else:
+            groups.append(current_group)
+            current_group = [current_ip]
+    
+    # Adiciona o último grupo
+    groups.append(current_group)
+    return groups
+
+def print_grouped_ips(groups):
+    """Imprime as sequências de IPs."""
+    print("Sequências de IPs:")
+    for group in groups:
+        print(f"Sequência: {', '.join(group)} - Quantidade: {len(group)}")
+
+def print_gap():
+    """Imprime uma lacuna."""
+    print("\nLacuna")
+
+def main():
+    """Função principal."""
+    filename = 'ips_disponiveis.txt'
+    ips = read_ips_from_file(filename)
+    groups = group_ips(ips)
+    
+    # Imprime as sequências de IPs e separa por lacunas
+    for group in groups:
+        print_grouped_ips([group])
+        print_gap()
+
+if __name__ == "__main__":
+    main()
