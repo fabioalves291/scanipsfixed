@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Caminho do arquivo de configuração DHCP
+dhcp_config="/caminho/do/arquivo/dhcp.conf"
+
+# Verifica se o arquivo existe
+if [ -f "$dhcp_config" ]; then
+    # Copia o arquivo de configuração DHCP para o diretório atual
+    cp "$dhcp_config" .
+
+    echo "Arquivo de configuração DHCP copiado com sucesso para o diretório atual."
+else
+    echo "Erro: O arquivo de configuração DHCP não foi encontrado em $dhcp_config."
+    exit 1
+fi
+
+# Verifica se o programa scan1.2 existe no diretório atual
+if [ -x ./scan1.2 ]; then
+    # Executa o programa scan1.2
+    ./scan1.2
+else
+    echo "Erro: O programa scan1.2 não foi encontrado no diretório atual."
+    exit 1
+fi
+
