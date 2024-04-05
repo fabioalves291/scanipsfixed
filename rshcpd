@@ -17,7 +17,7 @@ fi
 # Verifica se o programa scan1.2 existe no diretório atual
 if [ -x ./scan1.2 ]; then
     # Executa o programa scan1.2
-    ./scan1.2
+    python scan1.2
 else
     echo "Erro: O programa scan1.2 não foi encontrado no diretório atual."
     exit 1
